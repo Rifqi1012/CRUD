@@ -1,0 +1,557 @@
+1.	Kita akan membuat aplikasi CRUD dengan Laravel 8 untuk berbentuk aplikasi jadi kita harus membuat tabel SQL yang sesuai di database menggunakan migrate. Buka terminal dan jalankan:
+
+php artisan make:migration create_products_table --create=products
+
+2.	File migrate akan dibuat di dalam folder database/migrate, selanjutnya kita perlu menambahkan field ke tabel database. Sebuah produk akan memiliki: name, description, price, date crated, and date updated.
+Buka file [ tanggal dibuat ]_create_products_table.php yang berisi migrate class dan perbarui sebagai berikut:
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+class CreateProductsTable extends Migration
+{
+    /**
+     * Run the migrations.
+     *
+     * @return void
+     */
+    public function up()
+    {
+        Schema::create('products', function (Blueprint $table) {
+            $table->id();
+            $table->string('name', 255)->nullable();
+            $table->string('description', 500)->nullable();
+            $table->decimal('price', 22)->nullable()->default(0.00);
+            $table->timestamp('created_at')->useCurrent();
+            $table->timestamp('updated_at')->nullable();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     *
+     * @return void
+     */
+    public function down()
+    {
+        Schema::dropIfExists('products');
+    }
+}
+
+3.	Untuk menghindari kesalahan, Anda perlu menentukan panjang string default sebelum menjalankan migrasi.
+Buka file app/Providers/AppServiceProvider.php dan tambahkan use Illuminate\Support\Facades\Schema dan Schema::defaultstringLength(191) sebagai berikut:
+
+<?php
+
+namespace App\Providers;
+
+use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Schema;
+
+class AppServiceProvider extends ServiceProvider
+{
+    /**
+     * Register any application services.
+     *
+     * @return void
+     */
+    public function register()
+    {
+        //
+    }
+
+    /**
+     * Bootstrap any application services.
+     *
+     * @return void
+     */
+    public function boot()
+    {
+        Schema::defaultstringLength(191);
+    }
+}
+
+4.	Selanjutnya jalankan migrate
+
+php artisan migrate --path=/database/migrations/[tanggal dibuat]_create_product_table.php
+
+5.	Setelah membuat tabel database menggunakan migrata Laravel 8. Selanjutnya kita perlu menambahkan route untuk operasi CRUD.
+Buka file route\web.php dan tambahkan sebagai berikut:
+
+<?php
+
+use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register web routes for your application. These
+| routes are loaded by the RouteServiceProvider within a group which
+| contains the "web" middleware group. Now create something great!
+|
+*/
+
+Route::get('/', function () {
+    return view('welcome');
+});
+
+Auth::routes();
+
+Route::get('/home', 'HomeController@index')->name('home');
+Route::resource('product', 'ProductController');
+Route::get('/product', 'ProductController@index')->name('products');
+Route::get('/product/create', 'ProductController@create');
+Route::get('/product/show', 'ProductController@show');
+Route::get('/product/edit', 'ProductController@edit');
+Route::post('/product/store', 'ProductController@store');
+Route::put('/product/update', 'ProductController@update');
+Route::post('/product/destroy', 'ProductController@destroy');
+
+6.	Selanjutnya, kita perlu membuat Controller dan Model Laravel dengan menjalankan perintah berikut:
+
+php artisan make:controller ProductController --resource --model=Product
+
+7.	Anda akan ditanya apakah ingin membuat model Product karena model tersebut tidak ada. Ketik yes dan Controller & Model akan dibuat.
+Buka file app/Http/Controllers/ProductController.php dan perbarui sebagai berikut:
+
+<?php
+namespace App\Http\Controllers;
+
+use App\Models\Product;
+use Illuminate\Http\Request;
+
+class ProductController extends Controller
+{
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    
+    public function index()
+    {
+        $products = Product::latest()->paginate(5);
+
+        return view('products.index', compact('products'))
+            ->with('i', (request()->input('page', 1) - 1) * 5);
+    }
+
+    /**
+     * Show the form for creating a new resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function create()
+    {
+        return view('products.create');
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function store(Request $request)
+    {
+        $request->validate([
+            'name' => 'required',
+            'description' => 'required',
+            'price' => 'required'
+        ]);
+
+        Product::create($request->all());
+
+        return redirect()->route('products')
+            ->with('success', 'Product created successfully.');
+    }
+
+    /**
+     * Display the specified resource.
+     *
+     * @param  \App\Models\Product  $product
+     * @return \Illuminate\Http\Response
+     */
+    public function show(Product $product)
+    {
+        return view('products.show', compact('product'));
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     *
+     * @param  \App\Models\Product  $product
+     * @return \Illuminate\Http\Response
+     */
+    public function edit(Product $product)
+    {
+        return view('products.edit', compact('product'));
+    }
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\product  $product
+     * @return \Illuminate\Http\Response
+     */
+    public function update(Request $request, Product $product)
+    {
+        $request->validate([
+            'name' => 'required',
+            'description' => 'required',
+            'price' => 'required'
+        ]);
+        $product->update($request->all());
+
+        return redirect()->route('products')
+            ->with('success', 'Product updated successfully');
+    }
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  \App\Models\Product  $product
+     * @return \Illuminate\Http\Response
+     */
+    public function destroy(Product $product)
+    {
+        $product->delete();
+
+        return redirect()->route('products')
+            ->with('success', 'Product deleted successfully');
+    }
+}
+
+8.	Buat folder Models di dalam app, dan pindahkan Product.php ke dalam folder tersebut.
+Buka app/Models/Product.php, tambahkan fungsi berikut dan fillable, fillable adalah field dalam database yang dapat diisi oleh pengguna:
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Product extends Model
+{
+
+    protected $table = 'products';
+    public $timestamps = true;
+
+    protected $casts = [
+        'price' => 'float'
+    ];
+
+    protected $fillable = [
+        'name',
+        'description',
+        'price',
+        'created_at'
+    ];
+}
+
+9.	Masuk ke resources/views/layout/app.blade.php dan tambahkan baris berikut:
+
+<!doctype html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- CSRF Token -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <title>{{ config('app.name', 'Laravel') }}</title>
+
+    <!-- Scripts -->
+    <script src="{{ asset('js/app.js') }}" defer></script>
+
+    <!-- Fonts -->
+    <link rel="dns-prefetch" href="//fonts.gstatic.com">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css?family=Nunito" rel="stylesheet">
+
+    <!-- Styles -->
+    <link href="{{ asset('css/app.css') }}" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <nav class="navbar navbar-expand-md navbar-light bg-white shadow-sm">
+            <div class="container">
+                <a class="navbar-brand" href="{{ url('/') }}">
+                    {{ config('app.name', 'Laravel') }}
+                </a>
+                
+                </a>
+                <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="{{ __('Toggle navigation') }}">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                    <!-- Left Side Of Navbar -->
+                    <ul class="navbar-nav mr-auto">
+
+                    </ul>
+
+                    <!-- Right Side Of Navbar -->
+                    <ul class="navbar-nav ml-auto">
+                        <!-- Authentication Links -->
+                        @guest
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ route('login') }}">{{ __('Login') }}</a>
+                            </li>
+                            @if (Route::has('register'))
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{{ route('register') }}">{{ __('Register') }}</a>
+                                </li>
+                            @endif
+                        @else
+                            @if (Route::has('products'))
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{{ route('products') }}">{{ __('Product') }}</a>
+                                </li>
+                            @endif
+                            <li class="nav-item dropdown">
+                                <a id="navbarDropdown" class="nav-link dropdown-toggle" href="#" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" v-pre>
+                                    {{ Auth::user()->name }}
+                                </a>
+.
+.
+.
+.
+.
+
+10.	Setelah itu buat folder products di dalam \resources\views
+
+11.	Buat file index.blade.php dan isi dengan:
+
+@extends('layouts.app')
+
+@section('content')
+    <div class="row">
+        <div class="col-lg-12 margin-tb">
+            <div class="pull-left">
+                <h2>Laravel 8 CRUD Example </h2>
+            </div>
+            <div class="pull-right">
+                <a class="btn btn-success" href="{{ url('/product/create') }}" title="Create a product"> <i class="fas fa-plus-circle"></i>
+                    </a>
+            </div>
+        </div>
+    </div>
+
+    @if ($message = Session::get('success'))
+        <div class="alert alert-success">
+            <p></p>
+        </div>
+    @endif
+
+    <table class="table table-bordered table-responsive-lg">
+        <tr>
+            <th>No</th>
+            <th>Name</th>
+            <th>description</th>
+            <th>Price</th>
+            <th>Date Created</th>
+            <th>Actions</th>
+        </tr>
+        @foreach ($products as $product)
+            <tr>
+                <td>{{ $product->id }}</td>
+                <td>{{ $product->name }}</td>
+                <td>{{ $product->description }}</td>
+                <td>{{ $product->price }}</td>
+                <td>{{ $product->created_at }}</td>
+                <td>
+                    <form action="{{ route('product.destroy', $product) }}" method="POST">
+
+                        <a href="{{ route('product.show', $product) }}" title="show">
+                            <i class="fas fa-eye text-success  fa-lg"></i>
+                        </a>
+
+                        <a href="{{ route('product.edit', $product) }}">
+                            <i class="fas fa-edit  fa-lg"></i>
+                        </a>
+
+                        @csrf
+                        @method('DELETE')
+
+                        <button type="submit" title="delete" style="border: none; background-color:transparent;">
+                            <i class="fas fa-trash fa-lg text-danger"></i>
+                        </button>
+                    </form>
+                </td>
+            </tr>
+        @endforeach
+    </table>
+
+    {!! $products->links() !!}
+
+@endsection
+
+12.	Buat file show.blade.php dan isi dengan:
+
+@extends('layouts.app')
+
+
+@section('content')
+    <div class="row">
+        <div class="col-lg-12 margin-tb">
+            <div class="pull-left">
+                <h2>  </h2>
+            </div>
+            <div class="pull-right">
+                <a class="btn btn-primary" href="{{ url('/product') }}" title="Go back"> <i class="fas fa-backward "></i> </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-xs-12 col-sm-12 col-md-12">
+            <div class="form-group">
+                <strong>Name: </strong>
+                {{ $product->name }}
+            </div>
+        </div>
+        <div class="col-xs-12 col-sm-12 col-md-12">
+            <div class="form-group">
+                <strong>Description</strong>
+                {{ $product->description }}
+            </div>
+        </div>
+        <div class="col-xs-12 col-sm-12 col-md-12">
+            <div class="form-group">
+                <strong>Price</strong>
+                {{ $product->price }}
+            </div>
+        </div>
+        <div class="col-xs-12 col-sm-12 col-md-12">
+            <div class="form-group">
+                <strong>Date Created</strong>
+                {{ $product->created_at }}
+            </div>
+        </div>
+    </div>
+@endsection
+
+13.	Buat file create.blade.php dan isi dengan:
+
+@extends('layouts.app')
+
+@section('content')
+    <div class="row">
+        <div class="col-lg-12 margin-tb">
+            <div class="pull-left">
+                <h2>Add New Product</h2>
+            </div>
+            <div class="pull-right">
+                <a class="btn btn-primary" href="" title="Go back"> <i class="fas fa-backward "></i> </a>
+            </div>
+        </div>
+    </div>
+
+    @if ($errors->any())
+        <div class="alert alert-danger">
+            <strong>Error!</strong> 
+            <ul>
+                @foreach ($errors->all() as $error)
+                    <li></li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+    <form action="{{ url('/product/store') }}" method="POST" >
+        @csrf
+
+        <div class="row">
+            <div class="col-xs-12 col-sm-12 col-md-12">
+                <div class="form-group">
+                    <strong>Name:</strong>
+                    <input type="text" name="name" class="form-control" placeholder="Name">
+                </div>
+            </div>
+            <div class="col-xs-12 col-sm-12 col-md-12">
+                <div class="form-group">
+                    <strong>Description:</strong>
+                    <textarea class="form-control" style="height:50px" name="description"
+                        placeholder="description"></textarea>
+                </div>
+            </div>
+            <div class="col-xs-12 col-sm-12 col-md-12">
+                <div class="form-group">
+                    <strong>Price:</strong>
+                    <input type="number" name="price" class="form-control" placeholder="Put the price">
+                </div>
+            </div>
+            <div class="col-xs-12 col-sm-12 col-md-12 text-center">
+                <button type="submit" class="btn btn-primary">Submit</button>
+            </div>
+        </div>
+
+    </form>
+@endsection
+
+14.	Buat file edit.blade.php dan isi dengan:
+
+@extends('layouts.app')
+
+@section('content')
+    <div class="row">
+        <div class="col-lg-12 margin-tb">
+            <div class="pull-left">
+                <h2>Edit Product</h2>
+            </div>
+            <div class="pull-right">
+                <a class="btn btn-primary" href="" title="Go back"> <i class="fas fa-backward "></i> </a>
+            </div>
+        </div>
+    </div>
+
+    @if ($errors->any())
+        <div class="alert alert-danger">
+            <strong>Error!</strong>
+            <ul>
+                @foreach ($errors->all() as $error)
+                    <li></li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
+    <form action="{{ route('product.update', $product) }}" method="POST">
+        @csrf
+        @method('PUT')
+
+        <div class="row">
+            <div class="col-xs-12 col-sm-12 col-md-12">
+                <div class="form-group">
+                    <strong>Name:</strong>
+                    <input type="text" name="name" value="{{ $product->name }}" class="form-control" placeholder="Name">
+                </div>
+            </div>
+            <div class="col-xs-12 col-sm-12 col-md-12">
+                <div class="form-group">
+                    <strong>Description</strong>
+                    <textarea class="form-control" style="height:50px" name="description"
+                        placeholder="description">{{ $product->description }}</textarea>
+                </div>
+            </div>
+            <div class="col-xs-12 col-sm-12 col-md-12">
+                <div class="form-group">
+                    <strong>Price</strong>
+                    <input type="number" name="price" class="form-control" placeholder=""
+                        value="{{ $product->price }}">
+                </div>
+            </div>
+            <div class="col-xs-12 col-sm-12 col-md-12 text-center">
+                <button type="submit" class="btn btn-primary">Submit</button>
+            </div>
+        </div>
+
+    </form>
+@endsection
+

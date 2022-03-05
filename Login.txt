@@ -1,0 +1,9 @@
+1.	Install paket terbaru dari Laravel 8 dengan peritah: composer create-project --prefer-dist laravel/laravel projectlaravel
+2.	Buat database di phpmyadmin dengan nama project
+3.	Pada folder projectlaravel, buka file .env lalu ubah seperti berikut:
+4.	Setelah itu install laravel UI composer require laravel/ui
+5.	Kemudian install bootstrap pada project : php artisan ui bootstrap --auth
+6.	Lalu install npm dan jalankan npm dev : npm install npm run dev
+7.	Jalankan migrate untuk membuat database table : php artisan migrate
+8.	Jalankan development : php artisan serve
+
